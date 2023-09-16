@@ -1,0 +1,117 @@
+const Person = require("../models/user");
+
+exports.signup_user = async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: "Your name is required" });
+    }
+
+    if (typeof name !== "string" || !isNaN(name)) {
+      return res.status(400).json({
+        error: "Invalid name format, name must be a non-numeric string",
+      });
+    }
+
+    const person = new Person({ name });
+
+    await person.save();
+
+    res.status(201).json(person);
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ error: "User already exists" });
+    }
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.signin_user = async (req, res) => {
+  try {
+    let id = req.path.split("/")[2];
+
+    const person = await Person.findById(id);
+
+    if (person) {
+      // Document found, send it in the response
+      res.json({ status: true, data: person });
+    } else {
+      // Document not found
+      res.status(404).json({ error: "User not found" });
+    }
+  } catch (err) {
+    if (err.message && err.message.includes("Cast to ObjectId failed")) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+    console.error(err); // Log the error for debugging
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.update_user = async (req, res) => {
+  try {
+    let id = req.params.id;
+
+    // Validate the ID format (assuming it's a MongoDB ObjectId)
+    const person = await Person.findById(id);
+
+    if (!person) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Update the person document based on request data
+    if (req.body.name) {
+      person.name = req.body.name;
+    }
+
+    if (!req.body.name) {
+      return res.status(400).json({ error: "Your name is required" });
+    }
+
+    if (typeof req.body.name !== "string") {
+      return res.status(400).json({ error: "Name must be a string" });
+    }
+    // Save the updated person document
+    if (person) {
+      await person.save();
+    }
+    // Send a response with the updated data
+    res.json({ status: true, data: person });
+  } catch (err) {
+    if (err.message && err.message.includes("Cast to ObjectId failed")) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+    console.error(err); // Log the error for debugging
+    res.status(500).json({
+      error:
+        err.message || "An error occcured while in the process of updating",
+    });
+  }
+};
+
+exports.delete_user = async (req, res) => {
+  try {
+    let id = req.path.split("/")[2];
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+    const person = await Person.findById(id);
+
+    if (!person) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (person) {
+      await Person.findByIdAndDelete({ _id: id });
+    }
+
+    res.json({ status: true, message: "User deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      error:
+        err.message || "An error occcured while in the process of updating",
+    });
+  }
+};
